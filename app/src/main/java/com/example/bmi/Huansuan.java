@@ -15,6 +15,11 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +28,11 @@ import java.io.Reader;
 import java.net.DatagramSocketImpl;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 
 import javax.security.auth.login.LoginException;
 
@@ -38,6 +48,10 @@ public class Huansuan extends AppCompatActivity implements Runnable {
         Button btn2 = findViewById(R.id.euro);
         Button btn3 = findViewById(R.id.won);
         EditText ed=findViewById(R.id.rmb);
+
+
+
+
 
         btn1.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -81,8 +95,34 @@ public class Huansuan extends AppCompatActivity implements Runnable {
                 }
             }
         });
-        Thread t=new Thread(this);
-        t.start();
+
+        SharedPreferences sp=getSharedPreferences("update_2",MODE_PRIVATE);
+        SharedPreferences.Editor uped=sp.edit();
+        int state=sp.getInt("state", 0);
+        long lastupdate=sp.getLong("time",0);
+        Log.i("state", "onCreate: "+state);
+        long nd = 1000 * 24 * 60 * 60;
+        //获取当前时间
+        long nowtime=System.currentTimeMillis();
+        if(state==0){
+            uped.putInt("state",1);
+            uped.putLong("time",nowtime);
+            uped.commit();
+            Thread t=new Thread(this);
+            t.start();
+            Log.i("success", "onCreate: ");
+        }
+        else if(state==1){
+            long uptime=sp.getLong("time",0);
+            long diff=nowtime-uptime;
+            if(diff/nd>1){
+                uped.putLong("time",nowtime);
+                uped.commit();
+                Thread t=new Thread(this);
+                t.start();
+            }
+        }
+
     }
     public  void fun(View v){
         Intent in=new Intent(this,huilv.class);
@@ -114,16 +154,36 @@ public class Huansuan extends AppCompatActivity implements Runnable {
             connection.setRequestMethod("GET");//以GET方式发起请求（默认）
             InputStream inputStream = connection.getInputStream();//获得数据流
             String htmlcontent=inputStream2String(inputStream);
-            Log.i("taghttp", "run: "+htmlcontent);
+            //Log.i("taghttp", "run: "+htmlcontent);
             int index=0;
             index=htmlcontent.indexOf(">美元</a></td><td>");
-            Log.i("dollar", "run: "+htmlcontent.substring(index+16,index+21));
+            //Log.i("dollar", "run: "+htmlcontent.substring(index+16,index+21));
+            /*
             dollarhl=100/Float.parseFloat(htmlcontent.substring(index+16,index+21));
             index=htmlcontent.indexOf(">欧元</a></td><td>");
             eurohl=100/Float.parseFloat(htmlcontent.substring(index+16,index+21));
             index=htmlcontent.indexOf(">韩币</a></td><td>");
             wonhl=100/Float.parseFloat(htmlcontent.substring(index+16,index+21));
             Log.i("won", "run: "+htmlcontent.substring(index+16,index+21));
+            */
+            Document document= Jsoup.connect("https://usd-cny.com/").get();
+            Elements tables=document.select("table");
+            Element table= tables.get(0);
+            //Log.i("jsoup", "run: "+table);
+            for (Element el:table.select("tr")){
+                if(el.select("a").text().equals("美元")){
+                    Log.i("tagtd", "run: "+el.select("td").get(1).text());
+                    dollarhl=100/Float.parseFloat(el.select("td").get(1).text());
+                };
+                if(el.select("a").text().equals("欧元")){
+                    Log.i("tagtd", "run: "+el.select("td").get(1).text());
+                    eurohl=100/Float.parseFloat(el.select("td").get(1).text());
+                };if(el.select("a").text().equals("韩币")){
+                    Log.i("tagtd", "run: "+el.select("td").get(1).text());
+                    wonhl=100/Float.parseFloat(el.select("td").get(1).text());
+                };
+            }
+
 
         }catch (Exception e){e.printStackTrace();}
         finally {
